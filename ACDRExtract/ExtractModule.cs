@@ -53,7 +53,8 @@ namespace ACDRExtract
 
 					acdr = acdrModule.ReadACDR(packetRecord.PacketData,Port);
 					if (acdr == null) continue;
-					Log(LogLevels.Information, $"New ACDR {acdr.ToString}");
+					Log(LogLevels.Information, $"New ACDR {acdr.Value.FullSessionID}");
+					
 				}
 
 			} while (false);
