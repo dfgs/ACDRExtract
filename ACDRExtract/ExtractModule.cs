@@ -12,18 +12,14 @@ namespace ACDRExtract
 {
 	public class ExtractModule : Module
 	{
-		private ACDRModule acdrModule;
-		private PacketRecordReaderModule packetRecordReaderModule;
-		private PacketRecordWriterModule packetRecordWriterModule;
 		public ExtractModule(ILogger Logger) : base(Logger)
 		{
-			this.packetRecordReaderModule = new PacketRecordReaderModule(Logger);
-			this.packetRecordWriterModule = new PacketRecordWriterModule(Logger);
-			this.acdrModule = new ACDRModule(Logger);
 		}
 
 		public void Extract(string InputFilePath,string OutputFilePath, ushort Port)
 		{
+			ACDRModule acdrModule;
+
 			PacketRecord? packetRecord = null;
 			ACDR? acdr;
 
@@ -31,26 +27,29 @@ namespace ACDRExtract
 
 			Log(LogLevels.Information, $"Extracting file {InputFilePath} to {OutputFilePath}");
 
-			if (!packetRecordReaderModule.Open(InputFilePath)) return;
-			
-			while(!packetRecordReaderModule.EOF)
+			using (PacketRecordReaderModule packetRecordReaderModule = new PacketRecordReaderModule(Logger, InputFilePath))
 			{
-				packetRecord = packetRecordReaderModule.Read();
-				if (packetRecord == null) break;
-				counter++;
-				Log(LogLevels.Debug, $"Read packet record #{counter}");
+				acdrModule = new ACDRModule(Logger);
 
-				acdr = acdrModule.ReadACDR(packetRecord.PacketData,Port);
-				if (acdr == null) continue;
-				Log(LogLevels.Information, $"New ACDR {acdr.Value.FullSessionID}");
+				while (packetRecordReaderModule.CanRead)
+				{
+					packetRecord = packetRecordReaderModule.Read();
+					if (packetRecord == null) break;
+					counter++;
+					Log(LogLevels.Debug, $"Read packet record #{counter}");
 
-				if (acdr.Value.Header.MediaType != MediaTypes.ACDR_SIP) continue;
-				Log(LogLevels.Information, $"SIP message found");
+					acdr = acdrModule.ReadACDR(packetRecord.PacketData, Port);
+					if (acdr == null) continue;
+					Log(LogLevels.Information, $"New ACDR {acdr.Value.FullSessionID}");
 
+					if (acdr.Value.Header.MediaType != MediaTypes.ACDR_SIP) continue;
+					Log(LogLevels.Information, $"SIP message found");
+
+				}
 			}
 
 
-			packetRecordReaderModule.Close();
+			
 
 		}
 

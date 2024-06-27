@@ -11,76 +11,65 @@ using System.Threading.Tasks;
 
 namespace ACDRExtract
 {
-	public class PacketRecordReaderModule : Module
+	public class PacketRecordReaderModule : Module,IDisposable
 	{
 		private FileStream? stream = null;
 		private BinaryReader? binaryReader=null;
 		private IPcapReader pcapReader;
 
-		public bool EOF
+		public bool CanRead
 		{
-			get => stream == null ? true: stream.Position >= stream.Length;
+			get
+			{
+				if ((pcapReader == null) || (stream == null) || (binaryReader == null)) return false;
+				return stream.Position < stream.Length;
+			}
 		}
 
-		public PacketRecordReaderModule(ILogger Logger) : base(Logger)
+		public PacketRecordReaderModule(ILogger Logger, string FileName) : base(Logger)
 		{
 			pcapReader = new PcapReader();
 
-		}
-
-		public bool Open(string FileName)
-		{
 			FileHeader? header = null;
 
-			if ((stream != null) || (binaryReader != null))
-			{
-				Log(LogLevels.Error, "File is already opened");
-				return false;
-			}
 
-			if (!Try(() => new FileStream(FileName, FileMode.Open)).Then((result) => stream = result).OrAlert("Failed to open input file")) return false;
-			if (stream == null) return false;
+			if (!Try(() => new FileStream(FileName, FileMode.Open)).Then((result) => stream = result).OrAlert("Failed to open input file")) return;
+			if (stream == null) return;
 
 			binaryReader = new BinaryReader(stream);
 			pcapReader = new PcapReader();
 
-			if (!Try(() => pcapReader.ReadHeader(binaryReader)).Then((result) => header = result).OrAlert("Failed to read file header")) return false;
-			if (header == null) return false;
-
-			return true;
+			if (!Try(() => pcapReader.ReadHeader(binaryReader)).Then((result) => header = result).OrAlert("Failed to read file header")) return;
+			if (header == null) return;
 		}
 
-		public bool Close()
+		public override void Dispose()
 		{
 			if ((stream == null) || (binaryReader == null))
 			{
 				Log(LogLevels.Error, "File is not opened");
-				return false;
 			}
-
-			stream.Dispose();
-			stream = null;
-			binaryReader = null;
-			return true;
+			else
+			{
+				stream.Dispose();
+				stream = null;
+				binaryReader = null;
+			}
+			base.Dispose();
 		}
+
 
 		public PacketRecord? Read()
 		{
 			PacketRecord? packetRecord = null;
 
-			if ((stream==null) || (binaryReader == null))
+			if (!CanRead)
 			{
-				Log(LogLevels.Error, "File is not opened");
+				Log(LogLevels.Error, "Module not initialized successfully");
 				return null;
 			}
 
-			if (EOF)
-			{
-				Log(LogLevels.Error, "End of stream reached");
-				return null;
-			}
-
-			if (!Try(() => pcapReader.ReadPacketRecord(binaryReader)).Then((result) => packetRecord = result).OrAlert("Failed to read packet record")) return null;
+			if (!Try(() => pcapReader.ReadPacketRecord(binaryReader!)).Then((result) => packetRecord = result).OrAlert("Failed to read packet record")) return null;
 			return packetRecord;
 
 		}
