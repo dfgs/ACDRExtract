@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ACDRExtract": {
+      "commandName": "Project",
+      "commandLineArgs": "-v -i \"D:\\Examples syslog\\test rtcp\\trace.pcap\""
+    }
+  }
+}

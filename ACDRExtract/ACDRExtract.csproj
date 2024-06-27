@@ -7,4 +7,16 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\ACDRFrameReaderLib\ACDRFrameReaderLib\ACDRFrameReaderLib.csproj" />
+    <ProjectReference Include="..\..\EthernetFrameReaderLib\EthernetFrameReaderLib\EthernetFrameReaderLib.csproj" />
+    <ProjectReference Include="..\..\LogLib\LogLib\LogLib.csproj" />
+    <ProjectReference Include="..\..\ModuleLib\ModuleLib\ModuleLib.csproj" />
+    <ProjectReference Include="..\..\PcapReaderLib\PcapReaderLib\PcapReaderLib.csproj" />
+  </ItemGroup>
+
 </Project>
