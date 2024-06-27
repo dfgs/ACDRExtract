@@ -13,17 +13,17 @@ namespace ACDRExtract
 	public class ExtractModule : Module
 	{
 		private ACDRModule acdrModule;
+		private PacketRecordReaderModule packetRecordReaderModule;
+		private PacketRecordWriterModule packetRecordWriterModule;
 		public ExtractModule(ILogger Logger) : base(Logger)
 		{
+			this.packetRecordReaderModule = new PacketRecordReaderModule(Logger);
+			this.packetRecordWriterModule = new PacketRecordWriterModule(Logger);
 			this.acdrModule = new ACDRModule(Logger);
 		}
 
 		public void Extract(string InputFilePath,string OutputFilePath, ushort Port)
 		{
-			IPcapReader pcapReader;
-			BinaryReader binaryReader;
-			FileStream? stream=null;
-			FileHeader? header=null;
 			PacketRecord? packetRecord = null;
 			ACDR? acdr;
 
@@ -31,35 +31,26 @@ namespace ACDRExtract
 
 			Log(LogLevels.Information, $"Extracting file {InputFilePath} to {OutputFilePath}");
 
+			if (!packetRecordReaderModule.Open(InputFilePath)) return;
 			
-			if (!Try(() => new FileStream(InputFilePath, FileMode.Open)).Then((result) => stream = result).OrAlert("Failed to open input file")) return;
-			if (stream == null) return;
-
-			binaryReader = new BinaryReader(stream);
-			pcapReader = new PcapReader();
-
-			do
+			while(!packetRecordReaderModule.EOF)
 			{
-				if (!Try(() => pcapReader.ReadHeader(binaryReader)).Then((result) => header = result).OrAlert("Failed to read file header")) break;
-				if (header == null) break;
+				packetRecord = packetRecordReaderModule.Read();
+				if (packetRecord == null) break;
+				counter++;
+				Log(LogLevels.Debug, $"Read packet record #{counter}");
 
-				while(stream.Position<stream.Length)
-				{
-					
-					if (!Try(() => pcapReader.ReadPacketRecord(binaryReader)).Then((result) => packetRecord = result).OrAlert("Failed to read packet record")) break;
-					if (packetRecord == null) break;
-					counter++;
-					Log(LogLevels.Debug, $"Read packet record #{counter}");
+				acdr = acdrModule.ReadACDR(packetRecord.PacketData,Port);
+				if (acdr == null) continue;
+				Log(LogLevels.Information, $"New ACDR {acdr.Value.FullSessionID}");
 
-					acdr = acdrModule.ReadACDR(packetRecord.PacketData,Port);
-					if (acdr == null) continue;
-					Log(LogLevels.Information, $"New ACDR {acdr.Value.FullSessionID}");
-					
-				}
+				if (acdr.Value.Header.MediaType != MediaTypes.ACDR_SIP) continue;
+				Log(LogLevels.Information, $"SIP message found");
 
-			} while (false);
+			}
 
-			Try(() => stream.Dispose()).OrAlert("Failed to dispose input stream");
+
+			packetRecordReaderModule.Close();
 
 		}
 
